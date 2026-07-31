@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "protected_spatial.schema.json",
+  "type": "object",
+  "required": [
+    "bundle_id",
+    "key_id",
+    "algorithm",
+    "nonce_b64",
+    "ciphertext_b64",
+    "plaintext_sha256"
+  ],
+  "properties": {
+    "bundle_id": {"type": "string", "minLength": 1},
+    "key_id": {"type": "string", "minLength": 1},
+    "algorithm": {"const": "AES-256-GCM"},
+    "nonce_b64": {"type": "string", "minLength": 16},
+    "ciphertext_b64": {"type": "string", "minLength": 24},
+    "plaintext_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "aad": {
+      "type": "string",
+      "default": "trb-depot-agents/spatial-bundle/v1"
+    }
+  },
+  "additionalProperties": false
+}

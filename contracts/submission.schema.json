@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "submission.schema.json",
+  "type": "object",
+  "required": [
+    "plan_id",
+    "event_id",
+    "state_version",
+    "actions",
+    "messages",
+    "unresolved_blocking_objections",
+    "replayed_commitments"
+  ],
+  "properties": {
+    "plan_id": {"type": "string"},
+    "event_id": {"type": "string"},
+    "state_version": {"type": "string"},
+    "actions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/action"}
+    },
+    "messages": {
+      "type": "array",
+      "items": {"$ref": "interaction_event.schema.json"}
+    },
+    "unresolved_blocking_objections": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "replayed_commitments": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "known_entities": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "metadata": {"type": "object"}
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "action_type",
+        "owner",
+        "start_s",
+        "end_s"
+      ],
+      "properties": {
+        "action_id": {"type": "string"},
+        "action_type": {"type": "string"},
+        "owner": {
+          "enum": ["occ", "departure", "arrival", "proactive_shunting"]
+        },
+        "trainset_id": {"type": ["string", "null"]},
+        "start_s": {"type": "integer"},
+        "end_s": {"type": "integer"},
+        "from_location": {"type": ["string", "null"]},
+        "to_location": {"type": ["string", "null"]},
+        "route_id": {"type": ["string", "null"]},
+        "protected_action_id": {"type": ["string", "null"]},
+        "phase": {"type": ["string", "null"]},
+        "predecessors": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["resource_id", "start_s", "end_s"],
+            "properties": {
+              "resource_id": {"type": "string"},
+              "start_s": {"type": "integer"},
+              "end_s": {"type": "integer"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "metadata": {"type": "object"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "asset_reference.schema.json",
+  "type": "object",
+  "required": [
+    "asset_id",
+    "kind",
+    "filename",
+    "content_type",
+    "size_bytes",
+    "sha256",
+    "relative_path"
+  ],
+  "properties": {
+    "asset_id": {"type": "string"},
+    "kind": {"enum": ["cad", "timetable", "route-library"]},
+    "filename": {"type": "string"},
+    "content_type": {"type": "string"},
+    "size_bytes": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "relative_path": {"type": "string"}
+  },
+  "additionalProperties": false
+}

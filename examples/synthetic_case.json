@@ -1,0 +1,10 @@
+{
+  "event": {
+    "event_id": "SYN-BLOCKED-DEPARTURE-001",
+    "event_type": "blocked_departure",
+    "responsible_role": "departure",
+    "state_version": "synthetic-v1",
+    "affected_entities": ["TRAIN-A", "TRAIN-B", "BERTH-A", "BERTH-B", "TEMP-01"],
+    "description": "TRAIN-A blocks the protected departure of TRAIN-B."
+  }
+}

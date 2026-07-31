@@ -1,0 +1,13 @@
+[assets]
+root = "data/in"
+
+[episode]
+max_model_calls = 8
+max_rounds = 4
+max_messages = 24
+max_owner_revisions = 12
+max_replayed_commitments = 32
+
+[api]
+host = "127.0.0.1"
+port = 8080

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spatial.schema.json",
+  "type": "object",
+  "required": ["tracks", "routes"],
+  "properties": {
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["track_id", "capacity"],
+        "properties": {
+          "track_id": {"type": "string", "minLength": 1},
+          "capacity": {"type": "integer", "minimum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["route_id", "origin", "destination", "resources"],
+        "properties": {
+          "route_id": {"type": "string", "minLength": 1},
+          "origin": {"type": "string", "minLength": 1},
+          "destination": {"type": "string", "minLength": 1},
+          "resources": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          },
+          "edge_ids": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["node_id"],
+        "properties": {
+          "node_id": {"type": "string", "minLength": 1},
+          "node_type": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["edge_id", "origin", "destination"],
+        "properties": {
+          "edge_id": {"type": "string", "minLength": 1},
+          "origin": {"type": "string", "minLength": 1},
+          "destination": {"type": "string", "minLength": 1},
+          "resources": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          },
+          "travel_s": {"type": "integer", "minimum": 0},
+          "disabled": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "incompatible_resource_pairs": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {"type": "string", "minLength": 1},
+        "uniqueItems": true
+      },
+      "uniqueItems": true
+    },
+    "switch_locks": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {"type": "string", "minLength": 1},
+        "uniqueItems": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

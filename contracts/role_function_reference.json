@@ -1,0 +1,38 @@
+{
+  "protocol_version": "depot-role-agent-v1",
+  "roles": {
+    "occ": {
+      "organization": "OCC",
+      "owns": [
+        "adjust_departure_boundary",
+        "adjust_return_boundary",
+        "adjust_local_service_order"
+      ]
+    },
+    "departure": {
+      "organization": "DCC",
+      "owns": [
+        "assign_trainset",
+        "change_departure_order",
+        "set_outbound_route",
+        "dispatch_trainset"
+      ]
+    },
+    "arrival": {
+      "organization": "DCC",
+      "owns": [
+        "set_receiving_route",
+        "place_arriving_trainset",
+        "assign_work_window"
+      ]
+    },
+    "proactive_shunting": {
+      "organization": "DCC",
+      "owns": [
+        "clear_blocker",
+        "move_to_temporary_position",
+        "move_to_terminal_position"
+      ]
+    }
+  }
+}

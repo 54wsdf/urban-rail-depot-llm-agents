@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "interaction_event.schema.json",
+  "type": "object",
+  "required": [
+    "message_id",
+    "sender",
+    "recipient",
+    "message_type",
+    "event_id",
+    "state_version"
+  ],
+  "properties": {
+    "message_id": {"type": "string"},
+    "sender": {
+      "enum": ["occ", "departure", "arrival", "proactive_shunting"]
+    },
+    "recipient": {
+      "enum": ["occ", "departure", "arrival", "proactive_shunting"]
+    },
+    "message_type": {
+      "enum": [
+        "proposal",
+        "objection",
+        "counterproposal",
+        "owner_revision",
+        "dependency_replay",
+        "checker_feedback"
+      ]
+    },
+    "event_id": {"type": "string"},
+    "state_version": {"type": "string"},
+    "objection_id": {"type": ["string", "null"]},
+    "resolves_objection_id": {"type": ["string", "null"]},
+    "challenged_action_id": {"type": ["string", "null"]},
+    "affected_commitment": {"type": ["string", "null"]},
+    "evidence": {"type": "object"},
+    "released_or_reassigned_resource": {"type": "object"},
+    "alternative_actions": {
+      "type": "array",
+      "items": {"$ref": "submission.schema.json#/$defs/action"}
+    },
+    "acceptance_condition": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"message_type": {"const": "objection"}},
+        "required": ["message_type"]
+      },
+      "then": {
+        "required": [
+          "objection_id",
+          "challenged_action_id",
+          "affected_commitment",
+          "evidence"
+        ],
+        "properties": {
+          "objection_id": {"type": "string", "minLength": 1},
+          "challenged_action_id": {"type": "string", "minLength": 1},
+          "affected_commitment": {"type": "string", "minLength": 1},
+          "evidence": {"type": "object", "minProperties": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"message_type": {"const": "counterproposal"}},
+        "required": ["message_type"]
+      },
+      "then": {
+        "required": [
+          "challenged_action_id",
+          "affected_commitment",
+          "evidence",
+          "released_or_reassigned_resource",
+          "alternative_actions",
+          "acceptance_condition"
+        ],
+        "properties": {
+          "challenged_action_id": {"type": "string", "minLength": 1},
+          "affected_commitment": {"type": "string", "minLength": 1},
+          "evidence": {"type": "object", "minProperties": 1},
+          "resolves_objection_id": {"type": "null"},
+          "released_or_reassigned_resource": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "alternative_actions": {"type": "array", "minItems": 1},
+          "acceptance_condition": {"type": "object", "minProperties": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"message_type": {"const": "owner_revision"}},
+        "required": ["message_type"]
+      },
+      "then": {
+        "required": [
+          "challenged_action_id",
+          "affected_commitment",
+          "evidence",
+          "alternative_actions"
+        ],
+        "properties": {
+          "challenged_action_id": {"type": "string", "minLength": 1},
+          "affected_commitment": {"type": "string", "minLength": 1},
+          "evidence": {"type": "object", "minProperties": 1},
+          "alternative_actions": {"type": "array", "minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"message_type": {"const": "dependency_replay"}},
+        "required": ["message_type"]
+      },
+      "then": {
+        "required": ["affected_commitment", "evidence"],
+        "properties": {
+          "affected_commitment": {"type": "string", "minLength": 1},
+          "evidence": {"type": "object", "minProperties": 1}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

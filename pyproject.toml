@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trb-depot-agents"
+version = "0.3.0"
+description = "Reference contracts for role-specific LLM agents in dynamic urban rail depot scheduling"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  {name = "He Hu"},
+  {name = "Junhua Chen"},
+  {name = "Wenxuan Hao"},
+  {name = "Han Zheng"},
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+protected = ["cryptography>=42"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

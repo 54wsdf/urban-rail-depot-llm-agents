@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this reference implementation, cite the associated paper."
+title: "Role-Specific LLM Agents for Dynamic Urban Rail Depot Scheduling"
+type: software
+version: 0.2.0
+date-released: 2026-07-31
+authors:
+  - family-names: Hu
+    given-names: He
+  - family-names: Chen
+    given-names: Junhua
+  - family-names: Hao
+    given-names: Wenxuan
+  - family-names: Zheng
+    given-names: Han
+repository-code: "https://github.com/54wsdf/urban-rail-depot-llm-agents"
+preferred-citation:
+  type: conference-paper
+  title: "Dynamic Urban Rail Depot Scheduling with Role-Specific LLM Agents: Line-Depot Negotiation, Proactive Shunting, and Safety Admission"
+  authors:
+    - family-names: Hu
+      given-names: He
+    - family-names: Chen
+      given-names: Junhua
+    - family-names: Hao
+      given-names: Wenxuan
+    - family-names: Zheng
+      given-names: Han
+  year: 2026

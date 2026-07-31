@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "api.schema.json",
+  "$defs": {
+    "respond_request": {
+      "type": "object",
+      "required": ["role", "event", "state_projection", "candidate_plan"],
+      "properties": {
+        "role": {
+          "enum": ["occ", "departure", "arrival", "proactive_shunting"]
+        },
+        "event": {
+          "type": "object",
+          "required": [
+            "event_id",
+            "event_type",
+            "responsible_role",
+            "state_version"
+          ]
+        },
+        "state_projection": {"type": "object"},
+        "candidate_plan": {"type": "object"},
+        "response_schema": {"type": "object"},
+        "system_instruction": {"type": "string"}
+      }
+    },
+    "episode_request": {
+      "type": "object",
+      "required": ["event", "state_projection", "plan"],
+      "properties": {
+        "event": {"type": "object"},
+        "state_projection": {"type": "object"},
+        "plan": {"$ref": "submission.schema.json"},
+        "asset_bundle_id": {"type": "string"},
+        "spatial_model": {"$ref": "spatial.schema.json"},
+        "protected_spatial_bundle": {
+          "$ref": "protected_spatial.schema.json"
+        },
+        "track_intervals": {"type": "array", "items": {"type": "object"}},
+        "policy": {"type": "object"},
+        "response_schema": {"type": "object"},
+        "budget": {
+          "type": "object",
+          "properties": {
+            "max_model_calls": {"type": "integer", "minimum": 1},
+            "max_rounds": {"type": "integer", "minimum": 1},
+            "max_messages": {"type": "integer", "minimum": 1},
+            "max_owner_revisions": {"type": "integer", "minimum": 1},
+            "max_replayed_commitments": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "admission_request": {
+      "type": "object",
+      "required": ["plan", "live_state_version", "state_projection"],
+      "properties": {
+        "plan": {"$ref": "submission.schema.json"},
+        "live_state_version": {"type": "string"},
+        "state_projection": {"type": "object"},
+        "state_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "plan_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "spatial_model": {"$ref": "spatial.schema.json"},
+        "protected_spatial_bundle": {
+          "$ref": "protected_spatial.schema.json"
+        },
+        "track_intervals": {"type": "array", "items": {"type": "object"}},
+        "policy": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "commit_request": {
+      "type": "object",
+      "required": [
+        "plan",
+        "expected_state_version",
+        "expected_state_digest",
+        "expected_plan_digest"
+      ],
+      "properties": {
+        "plan": {"$ref": "submission.schema.json"},
+        "expected_state_version": {"type": "string"},
+        "expected_state_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "expected_plan_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "next_state_version": {"type": "string"},
+        "spatial_model": {"$ref": "spatial.schema.json"},
+        "protected_spatial_bundle": {
+          "$ref": "protected_spatial.schema.json"
+        },
+        "track_intervals": {"type": "array", "items": {"type": "object"}},
+        "policy": {"type": "object"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

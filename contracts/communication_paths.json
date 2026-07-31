@@ -1,0 +1,65 @@
+{
+  "protocol_version": "depot-role-agent-v1",
+  "paths": [
+    {
+      "sender": "departure",
+      "recipient": "proactive_shunting",
+      "condition": "blocked_departure_or_unreachable_outbound_route"
+    },
+    {
+      "sender": "departure",
+      "recipient": "arrival",
+      "condition": "departure_revision_affects_receiving_placement_work_or_later_cycle"
+    },
+    {
+      "sender": "departure",
+      "recipient": "occ",
+      "condition": "depot_revision_cannot_meet_departure_boundary"
+    },
+    {
+      "sender": "arrival",
+      "recipient": "proactive_shunting",
+      "condition": "receiving_placement_or_work_access_blocked"
+    },
+    {
+      "sender": "arrival",
+      "recipient": "departure",
+      "condition": "arrival_placement_or_work_affects_next_departure"
+    },
+    {
+      "sender": "arrival",
+      "recipient": "occ",
+      "condition": "return_boundary_cannot_be_realized_in_depot"
+    },
+    {
+      "sender": "proactive_shunting",
+      "recipient": "departure",
+      "condition": "protected_departure_requires_owner_revision"
+    },
+    {
+      "sender": "proactive_shunting",
+      "recipient": "arrival",
+      "condition": "protected_arrival_or_work_requires_owner_revision"
+    },
+    {
+      "sender": "proactive_shunting",
+      "recipient": "occ",
+      "condition": "movement_chain_cannot_close_within_line_boundary"
+    },
+    {
+      "sender": "occ",
+      "recipient": "departure",
+      "condition": "departure_boundary_or_line_order_changed"
+    },
+    {
+      "sender": "occ",
+      "recipient": "arrival",
+      "condition": "return_release_or_line_arrival_changed"
+    },
+    {
+      "sender": "occ",
+      "recipient": "proactive_shunting",
+      "condition": "line_boundary_changes_shunting_window_or_order"
+    }
+  ]
+}
