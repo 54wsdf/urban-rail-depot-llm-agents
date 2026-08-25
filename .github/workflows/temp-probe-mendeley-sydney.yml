@@ -9,22 +9,27 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe anonymous ZIP route
+      - name: Resolve ZIP size by ranged GET
         run: |
           set -euo pipefail
-          URL='https://data.mendeley.com/public-api/zip/gstfpzg339/download/1'
-          echo "$URL"
-          curl -sS -L -I --max-time 120 "$URL" | tee headers.txt
-          curl -sS -L --range 0-1048575 --max-time 120 "$URL" -o first.bin
-          file first.bin
-          wc -c first.bin
-          sha256sum first.bin
+          BASE='https://data.mendeley.com/public-api/zip/gstfpzg339/download/1'
+          curl -sS -D redirect.headers -o redirect.body "$BASE"
+          SIGNED=$(awk 'BEGIN{IGNORECASE=1} /^location:/{sub(/^location:[[:space:]]*/,""); sub(/\r$/,""); print; exit}' redirect.headers)
+          test -n "$SIGNED"
+          curl -sS -D range.headers -H 'Range: bytes=0-0' "$SIGNED" -o first.byte
+          cat range.headers
+          TOTAL=$(awk 'BEGIN{IGNORECASE=1} /^content-range:/{gsub(/\r/,""); split($0,a,"/"); print a[2]; exit}' range.headers)
+          printf 'total_bytes=%s\n' "$TOTAL" | tee size.txt
+          test -n "$TOTAL"
+          test "$(wc -c < first.byte)" -eq 1
 
-      - name: Upload probe
+      - name: Upload size probe
         uses: actions/upload-artifact@v4
         with:
-          name: mendeley-sydney-zip-head
+          name: mendeley-sydney-size-probe
           path: |
-            headers.txt
-            first.bin
+            redirect.headers
+            range.headers
+            size.txt
+            first.byte
           retention-days: 2
