@@ -1,4 +1,4 @@
-name: Temp probe Mendeley Sydney dataset
+name: Temp fetch Mendeley Sydney dataset
 
 on:
   push:
@@ -6,30 +6,31 @@ on:
       - .github/workflows/temp-probe-mendeley-sydney.yml
 
 jobs:
-  probe:
+  fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Resolve ZIP size by ranged GET
+      - name: Download complete Sydney archive and audit
         run: |
           set -euo pipefail
           BASE='https://data.mendeley.com/public-api/zip/gstfpzg339/download/1'
-          curl -sS -D redirect.headers -o redirect.body "$BASE"
-          SIGNED=$(awk 'BEGIN{IGNORECASE=1} /^location:/{sub(/^location:[[:space:]]*/,""); sub(/\r$/,""); print; exit}' redirect.headers)
-          test -n "$SIGNED"
-          curl -sS -D range.headers -H 'Range: bytes=0-0' "$SIGNED" -o first.byte
-          cat range.headers
-          TOTAL=$(awk 'BEGIN{IGNORECASE=1} /^content-range:/{gsub(/\r/,""); split($0,a,"/"); print a[2]; exit}' range.headers)
-          printf 'total_bytes=%s\n' "$TOTAL" | tee size.txt
-          test -n "$TOTAL"
-          test "$(wc -c < first.byte)" -eq 1
+          curl -fL --retry 3 --connect-timeout 30 --max-time 900 "$BASE" -o Sydney_GTFSRT_Mendeley_gstfpzg339_v1.zip
+          test "$(stat -c%s Sydney_GTFSRT_Mendeley_gstfpzg339_v1.zip)" -eq 178330829
+          sha256sum Sydney_GTFSRT_Mendeley_gstfpzg339_v1.zip > SHA256SUMS.txt
+          unzip -t Sydney_GTFSRT_Mendeley_gstfpzg339_v1.zip > ZIP_TEST.txt
+          unzip -l Sydney_GTFSRT_Mendeley_gstfpzg339_v1.zip > ZIP_CONTENTS.txt
+          cat SHA256SUMS.txt
+          tail -5 ZIP_TEST.txt
+          head -40 ZIP_CONTENTS.txt
 
-      - name: Upload size probe
+      - name: Upload Sydney archive
         uses: actions/upload-artifact@v4
         with:
-          name: mendeley-sydney-size-probe
+          name: sydney-gtfsrt-gstfpzg339-v1
           path: |
-            redirect.headers
-            range.headers
-            size.txt
-            first.byte
+            Sydney_GTFSRT_Mendeley_gstfpzg339_v1.zip
+            SHA256SUMS.txt
+            ZIP_TEST.txt
+            ZIP_CONTENTS.txt
+          compression-level: 0
           retention-days: 2
