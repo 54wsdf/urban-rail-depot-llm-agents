@@ -18,17 +18,7 @@ jobs:
             u="https://performancedata.mbta.com/lamp/subway-on-time-performance-v1/${d}-subway-on-time-performance-v1.parquet"
             if curl -fL --retry 3 -o "lamp/${d}.parquet" "$u"; then
               sha256sum "lamp/${d}.parquet" >> lamp/SHA256SUMS_PARQUET.txt
-              python - "$d" <<'PY'
-import pandas as pd, sys, json
-from pathlib import Path
-d=sys.argv[1]
-p=Path('lamp')/f'{d}.parquet'
-df=pd.read_parquet(p)
-print(d, df.shape)
-print(df.columns.tolist())
-df.to_csv(Path('lamp')/f'{d}.csv.gz', index=False, compression='gzip')
-(Path('lamp')/f'{d}-schema.json').write_text(json.dumps({'date':d,'rows':len(df),'columns':list(df.columns)},indent=2))
-PY
+              python -c "import pandas as pd,json; from pathlib import Path; d='$d'; p=Path('lamp')/(d+'.parquet'); df=pd.read_parquet(p); print(d,df.shape); print(df.columns.tolist()); df.to_csv(Path('lamp')/(d+'.csv.gz'),index=False,compression='gzip'); (Path('lamp')/(d+'-schema.json')).write_text(json.dumps({'date':d,'rows':len(df),'columns':list(df.columns)},indent=2))"
               rm "lamp/${d}.parquet"
             fi
           done
