@@ -7,26 +7,34 @@ jobs:
   acquire:
     runs-on: ubuntu-latest
     steps:
-      - name: Download public MBTA LAMP index and realized subway data
+      - name: Download and convert public MBTA LAMP data
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p lamp
           curl -fL --retry 3 -o lamp/index.csv https://performancedata.mbta.com/lamp/subway-on-time-performance-v1/index.csv
-          echo '--- index tail ---'
-          tail -n 20 lamp/index.csv || true
+          python -m pip install --quiet pandas pyarrow
           for d in 2026-08-19 2026-08-20 2026-08-21 2026-08-22 2026-08-23; do
             u="https://performancedata.mbta.com/lamp/subway-on-time-performance-v1/${d}-subway-on-time-performance-v1.parquet"
-            if curl -fL --retry 3 -o "lamp/${d}-subway-on-time-performance-v1.parquet" "$u"; then
-              sha256sum "lamp/${d}-subway-on-time-performance-v1.parquet" >> lamp/SHA256SUMS.txt
-            else
-              rm -f "lamp/${d}-subway-on-time-performance-v1.parquet"
+            if curl -fL --retry 3 -o "lamp/${d}.parquet" "$u"; then
+              sha256sum "lamp/${d}.parquet" >> lamp/SHA256SUMS_PARQUET.txt
+              python - "$d" <<'PY'
+import pandas as pd, sys, json
+from pathlib import Path
+d=sys.argv[1]
+p=Path('lamp')/f'{d}.parquet'
+df=pd.read_parquet(p)
+print(d, df.shape)
+print(df.columns.tolist())
+df.to_csv(Path('lamp')/f'{d}.csv.gz', index=False, compression='gzip')
+(Path('lamp')/f'{d}-schema.json').write_text(json.dumps({'date':d,'rows':len(df),'columns':list(df.columns)},indent=2))
+PY
+              rm "lamp/${d}.parquet"
             fi
           done
           ls -lh lamp
-          cat lamp/SHA256SUMS.txt || true
       - uses: actions/upload-artifact@v4
         with:
-          name: mbta-lamp-20260825
+          name: mbta-lamp-csv-20260825
           path: lamp/
           retention-days: 7
