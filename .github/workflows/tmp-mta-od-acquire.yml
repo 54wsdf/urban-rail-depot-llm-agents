@@ -7,65 +7,47 @@ jobs:
   acquire:
     runs-on: ubuntu-latest
     steps:
-      - name: Crosswalk frozen GTFS station names to public OD complexes
+      - name: Crosswalk GTFS stops to OD complexes with official stations dataset
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p mtaod
+          curl -fL --retry 3 -o mtaod/stations_complexes.csv 'https://data.ny.gov/api/v3/views/5f5g-n3cz/export.csv?accessType=DOWNLOAD'
           python - <<'PY'
-          import requests,json,csv,re
-          base='https://data.ny.gov/resource/28vm-gjqr.json'
-          s=requests.Session()
-          meta=s.get('https://data.ny.gov/api/views/28vm-gjqr',timeout=60); meta.raise_for_status()
-          open('mtaod/metadata.json','w').write(json.dumps(meta.json(),indent=2))
-          gtfs={'221':'3 Av-149 St','222':'149 St-Hostos','416':'138 St-Grand Concourse','621':'125 St','622':'116 St'}
-          patterns={
-            '221':['3 Av-149 St'],
-            '222':['149 St-Hostos','149 St-Grand Concourse','149 St'],
-            '416':['138 St-Grand Concourse'],
-            '621':['125 St'],
-            '622':['116 St']}
-          discoveries={}
-          for sid,pats in patterns.items():
-            got={}
-            for pat in pats:
-              q={'$select':'origin_station_complex_id,origin_station_complex_name,count(*) as n',
-                 '$where':f"origin_station_complex_name like '%{pat}%'",
-                 '$group':'origin_station_complex_id,origin_station_complex_name','$limit':100}
-              r=s.get(base,params=q,timeout=90); r.raise_for_status()
-              for x in r.json(): got[x['origin_station_complex_id']]=x
-            discoveries[sid]=list(got.values())
-          open('mtaod/crosswalk_candidates.json','w').write(json.dumps({'gtfs':gtfs,'candidates':discoveries},indent=2))
-          print(json.dumps(discoveries,indent=2))
-          # deterministic route-aware selection from returned names
-          want_routes={'221':{'2','5'},'222':{'2','4','5'},'416':{'4','5'},'621':{'4','5','6'},'622':{'6'}}
-          def routes(name):
-            m=re.findall(r'\(([^)]*)\)',name or '')
-            if not m:return set()
-            return {z.strip() for z in m[-1].split(',')}
-          selected={}
-          for sid,cs in discoveries.items():
-            scored=[]
-            for x in cs:
-              nm=x['origin_station_complex_name']; rr=routes(nm)
-              name_score=1 if gtfs[sid].split('(')[0].lower() in nm.lower() else 0
-              route_score=len(rr & want_routes[sid])
-              # specific line/location hints prevent selecting unrelated 125/116 St complexes
-              bonus=0
-              if sid=='621' and {'4','5','6'} <= rr: bonus=10
-              if sid=='622' and '6' in rr: bonus=10
-              if sid=='416' and ('138 St-Grand Concourse' in nm): bonus=10
-              if sid=='221' and ('3 Av-149 St' in nm): bonus=10
-              if sid=='222' and ('149 St' in nm and ({'2','4','5'} & rr)): bonus=10
-              scored.append((bonus+route_score+name_score,x))
-            if scored:
-              scored.sort(key=lambda z:(z[0],int(z[1].get('n','0'))),reverse=True); selected[sid]=scored[0][1]
-          open('mtaod/crosswalk_selected.json','w').write(json.dumps(selected,indent=2))
-          ids=sorted({x['origin_station_complex_id'] for x in selected.values()},key=int)
+          import pandas as pd, requests, json, csv, re
+          gtfs_ids=['221','222','416','621','622']
+          st=pd.read_csv('mtaod/stations_complexes.csv',dtype=str)
+          print('station columns',st.columns.tolist())
+          # find likely GTFS/complex fields robustly
+          def findcol(cands):
+            for c in st.columns:
+              z=c.lower().replace('_',' ').strip()
+              if any(k in z for k in cands): return c
+          gtfs_col=findcol(['gtfs stop','gtfs'])
+          complex_col=findcol(['complex id'])
+          name_col=findcol(['stop name','station name','complex name'])
+          routes_col=findcol(['daytime routes','services','route'])
+          print('mapped cols',gtfs_col,complex_col,name_col,routes_col)
+          sel=st[st[gtfs_col].isin(gtfs_ids)].copy()
+          # if exact parent rows are absent, allow N/S suffix stop IDs by prefix.
+          if len(sel)<len(gtfs_ids):
+            mask=st[gtfs_col].fillna('').map(lambda x:any(x==g or x.startswith(g+'N') or x.startswith(g+'S') for g in gtfs_ids))
+            sel=st[mask].copy()
+          sel.to_csv('mtaod/crosswalk_rows.csv',index=False)
+          cross={}
+          for g in gtfs_ids:
+            r=sel[sel[gtfs_col].fillna('').map(lambda x:x==g or x.startswith(g+'N') or x.startswith(g+'S'))]
+            if not r.empty:
+              rr=r.iloc[0]
+              cross[g]={'complex_id':str(rr[complex_col]),'name':None if pd.isna(rr[name_col]) else str(rr[name_col]),'gtfs_stop_id':str(rr[gtfs_col]),'routes':None if routes_col is None or pd.isna(rr[routes_col]) else str(rr[routes_col])}
+          open('mtaod/crosswalk_selected.json','w').write(json.dumps(cross,indent=2))
+          ids=sorted({x['complex_id'] for x in cross.values()},key=lambda x:int(float(x)))
+          print('crosswalk',json.dumps(cross,indent=2)); print('od ids',ids)
+          base='https://data.ny.gov/resource/28vm-gjqr.json'; s=requests.Session()
+          meta=s.get('https://data.ny.gov/api/views/28vm-gjqr',timeout=60); meta.raise_for_status(); open('mtaod/metadata.json','w').write(json.dumps(meta.json(),indent=2))
           idlist=','.join(ids)
           where=f"month=6 AND day_of_week='Wednesday' AND hour_of_day between 7 and 9 AND (origin_station_complex_id in({idlist}) OR destination_station_complex_id in({idlist}))"
-          q={'$select':'month,day_of_week,hour_of_day,origin_station_complex_id,origin_station_complex_name,destination_station_complex_id,destination_station_complex_name,estimated_average_ridership',
-             '$where':where,'$limit':10000,'$offset':0}
+          q={'$select':'month,day_of_week,hour_of_day,origin_station_complex_id,origin_station_complex_name,destination_station_complex_id,destination_station_complex_name,estimated_average_ridership', '$where':where,'$limit':10000,'$offset':0}
           rows=[]
           while True:
             r=s.get(base,params=q,timeout=120); r.raise_for_status(); b=r.json(); rows+=b
@@ -75,14 +57,14 @@ jobs:
             with open('mtaod/subset.csv','w',newline='') as f:
               w=csv.DictWriter(f,fieldnames=list(rows[0])); w.writeheader(); w.writerows(rows)
           open('mtaod/subset.json','w').write(json.dumps(rows,indent=2))
-          target_ids=set(ids); agg={i:{'origin_ridership':0.,'destination_ridership':0.} for i in ids}
+          agg={i:{'origin_ridership':0.,'destination_ridership':0.} for i in ids}
           for x in rows:
             v=float(x.get('estimated_average_ridership') or 0); oi=x.get('origin_station_complex_id'); di=x.get('destination_station_complex_id')
             if oi in agg: agg[oi]['origin_ridership']+=v
             if di in agg: agg[di]['destination_ridership']+=v
           open('mtaod/target_intensity.json','w').write(json.dumps(agg,indent=2))
-          open('mtaod/manifest.json','w').write(json.dumps({'dataset_id':'28vm-gjqr','rows':len(rows),'selected':selected,'where':where},indent=2))
-          print('selected',json.dumps(selected,indent=2)); print('rows',len(rows)); print('intensity',agg)
+          open('mtaod/manifest.json','w').write(json.dumps({'od_dataset_id':'28vm-gjqr','station_crosswalk_dataset_id':'5f5g-n3cz','rows':len(rows),'crosswalk':cross,'where':where},indent=2))
+          print('rows',len(rows)); print('intensity',agg)
           PY
           sha256sum mtaod/* > mtaod/SHA256SUMS.txt
           ls -lh mtaod
