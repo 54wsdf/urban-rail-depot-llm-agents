@@ -7,34 +7,53 @@ jobs:
   acquire:
     runs-on: ubuntu-latest
     steps:
-      - name: Query public 2026 MTA OD subset
+      - name: Query public 2026 MTA OD target subset
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p mtaod
           python - <<'PY'
-          import requests, json, csv, os, time
+          import requests, json, csv
           base='https://data.ny.gov/resource/28vm-gjqr.json'
-          # First record + metadata to freeze schema.
-          meta=requests.get('https://data.ny.gov/api/views/28vm-gjqr',timeout=60); meta.raise_for_status()
+          s=requests.Session()
+          meta=s.get('https://data.ny.gov/api/views/28vm-gjqr',timeout=60); meta.raise_for_status()
           open('mtaod/metadata.json','w').write(json.dumps(meta.json(),indent=2))
-          params={'$select':'month,day_of_week,hour_of_day,origin_station_complex_id,origin_station_complex_name,destination_station_complex_id,destination_station_complex_name,estimated_average_ridership',
-                  '$where':"origin_station_complex_name like '%149%' OR destination_station_complex_name like '%149%' OR origin_station_complex_name like '%138%' OR destination_station_complex_name like '%138%' OR origin_station_complex_name like '%125 St%' OR destination_station_complex_name like '%125 St%' OR origin_station_complex_name like '%116 St%' OR destination_station_complex_name like '%116 St%'",
-                  '$limit':50000,'$offset':0}
+          discoveries=[]
+          for pat in ['149','138','125 St','116 St']:
+              q={'$select':'origin_station_complex_id,origin_station_complex_name,count(*) as n',
+                 '$where':f"origin_station_complex_name like '%{pat}%'",
+                 '$group':'origin_station_complex_id,origin_station_complex_name','$limit':200}
+              r=s.get(base,params=q,timeout=60); r.raise_for_status(); discoveries += r.json()
+          # unique station complexes in the north-Manhattan/Bronx mechanism corridor
+          uniq={x['origin_station_complex_id']:x['origin_station_complex_name'] for x in discoveries}
+          open('mtaod/target_complexes.json','w').write(json.dumps(uniq,indent=2))
+          ids=list(uniq)
+          idlist=','.join(ids)
+          # Representative current-data slice: June 2026 Wednesdays, 07:00-09:59.
+          where=f"month=6 AND day_of_week='Wednesday' AND hour_of_day between 7 and 9 AND (origin_station_complex_id in({idlist}) OR destination_station_complex_id in({idlist}))"
+          q={'$select':'month,day_of_week,hour_of_day,origin_station_complex_id,origin_station_complex_name,destination_station_complex_id,destination_station_complex_name,estimated_average_ridership',
+             '$where':where,'$limit':50000,'$offset':0}
           rows=[]
           while True:
-              r=requests.get(base,params=params,timeout=120); r.raise_for_status(); batch=r.json()
-              rows.extend(batch)
-              if len(batch)<params['$limit']: break
-              params['$offset'] += params['$limit']
-              if params['$offset']>=500000: break
+              r=s.get(base,params=q,timeout=120); r.raise_for_status(); b=r.json(); rows+=b
+              if len(b)<q['$limit']: break
+              q['$offset']+=q['$limit']
           open('mtaod/subset.json','w').write(json.dumps(rows,indent=2))
           if rows:
               with open('mtaod/subset.csv','w',newline='') as f:
-                  w=csv.DictWriter(f,fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
-          open('mtaod/manifest.json','w').write(json.dumps({'dataset_id':'28vm-gjqr','rows':len(rows),'query':params},indent=2))
+                  w=csv.DictWriter(f,fieldnames=list(rows[0])); w.writeheader(); w.writerows(rows)
+          # aggregate total inflow/outflow for each target complex in this slice
+          agg={i:{'name':uniq[i],'origin_ridership':0.0,'destination_ridership':0.0} for i in ids}
+          for x in rows:
+              v=float(x.get('estimated_average_ridership') or 0)
+              oi=x.get('origin_station_complex_id'); di=x.get('destination_station_complex_id')
+              if oi in agg: agg[oi]['origin_ridership']+=v
+              if di in agg: agg[di]['destination_ridership']+=v
+          open('mtaod/target_intensity.json','w').write(json.dumps(agg,indent=2))
+          open('mtaod/manifest.json','w').write(json.dumps({'dataset_id':'28vm-gjqr','rows':len(rows),'target_complexes':uniq,'where':where},indent=2))
+          print('complexes',uniq)
           print('rows',len(rows))
-          print('origin names',sorted({x.get('origin_station_complex_name','') for x in rows if x.get('origin_station_complex_name')})[:100])
+          print('intensity',agg)
           PY
           sha256sum mtaod/* > mtaod/SHA256SUMS.txt
           ls -lh mtaod
