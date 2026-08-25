@@ -1,0 +1,45 @@
+name: tmp-mta-od-acquire
+on:
+  push:
+    branches: [tmp/lamp-acquisition-20260825]
+  workflow_dispatch:
+jobs:
+  acquire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query public 2026 MTA OD subset
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p mtaod
+          python - <<'PY'
+          import requests, json, csv, os, time
+          base='https://data.ny.gov/resource/28vm-gjqr.json'
+          # First record + metadata to freeze schema.
+          meta=requests.get('https://data.ny.gov/api/views/28vm-gjqr',timeout=60); meta.raise_for_status()
+          open('mtaod/metadata.json','w').write(json.dumps(meta.json(),indent=2))
+          params={'$select':'month,day_of_week,hour_of_day,origin_station_complex_id,origin_station_complex_name,destination_station_complex_id,destination_station_complex_name,estimated_average_ridership',
+                  '$where':"origin_station_complex_name like '%149%' OR destination_station_complex_name like '%149%' OR origin_station_complex_name like '%138%' OR destination_station_complex_name like '%138%' OR origin_station_complex_name like '%125 St%' OR destination_station_complex_name like '%125 St%' OR origin_station_complex_name like '%116 St%' OR destination_station_complex_name like '%116 St%'",
+                  '$limit':50000,'$offset':0}
+          rows=[]
+          while True:
+              r=requests.get(base,params=params,timeout=120); r.raise_for_status(); batch=r.json()
+              rows.extend(batch)
+              if len(batch)<params['$limit']: break
+              params['$offset'] += params['$limit']
+              if params['$offset']>=500000: break
+          open('mtaod/subset.json','w').write(json.dumps(rows,indent=2))
+          if rows:
+              with open('mtaod/subset.csv','w',newline='') as f:
+                  w=csv.DictWriter(f,fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+          open('mtaod/manifest.json','w').write(json.dumps({'dataset_id':'28vm-gjqr','rows':len(rows),'query':params},indent=2))
+          print('rows',len(rows))
+          print('origin names',sorted({x.get('origin_station_complex_name','') for x in rows if x.get('origin_station_complex_name')})[:100])
+          PY
+          sha256sum mtaod/* > mtaod/SHA256SUMS.txt
+          ls -lh mtaod
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mta-od-subset-20260825
+          path: mtaod/
+          retention-days: 7
