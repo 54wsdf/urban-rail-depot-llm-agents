@@ -1,0 +1,42 @@
+name: Temp SODA torrent availability probe
+
+on:
+  push:
+    paths:
+      - .github/workflows/temp-soda-torrent-probe.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install aria2 and fetch torrent
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2
+          curl -fL --retry 3 'https://raw.githubusercontent.com/jeevanyue/metro/bb78b72ecadc57e0c8deedf9731a78a65ab62ef4/soda.torrent' -o soda.torrent
+          aria2c --show-files soda.torrent | tee TORRENT_FILES.txt
+
+      - name: Probe small Shanghai metro base payload
+        run: |
+          set +e
+          mkdir -p probe
+          timeout 240 aria2c --dir=probe --select-file=42 --seed-time=0 --bt-stop-timeout=120 --summary-interval=20 --console-log-level=notice soda.torrent 2>&1 | tee TORRENT_PROBE.log
+          rc=${PIPESTATUS[0]}
+          echo "aria2_exit=$rc" | tee PROBE_STATUS.txt
+          find probe -type f -printf '%p %s bytes\n' | tee PROBE_FILES.txt
+          exit 0
+
+      - name: Upload probe evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: soda-torrent-probe-20260825
+          path: |
+            TORRENT_FILES.txt
+            TORRENT_PROBE.log
+            PROBE_STATUS.txt
+            PROBE_FILES.txt
+            probe
+          retention-days: 2
+          compression-level: 0
