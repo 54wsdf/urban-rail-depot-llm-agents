@@ -1,0 +1,56 @@
+name: Temp probe Mendeley Sydney dataset
+
+on:
+  push:
+    paths:
+      - .github/workflows/temp-probe-mendeley-sydney.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe public endpoints and page
+        run: |
+          set +e
+          mkdir -p out
+          urls=(
+            'https://api.data.mendeley.com/datasets/gstfpzg339?version=1'
+            'https://api.data.mendeley.com/datasets/publics/gstfpzg339?version=1'
+            'https://api.data.mendeley.com/datasets/publics/gstfpzg339/files?version=1&%24limit=100'
+            'https://api.data.mendeley.com/datasets/gstfpzg339/files?version=1&%24limit=100'
+            'https://data.mendeley.com/datasets/gstfpzg339/1'
+            'https://data.mendeley.com/datasets/gstfpzg339'
+          )
+          i=0
+          for u in "${urls[@]}"; do
+            i=$((i+1))
+            echo "$u" > "out/url_$i.txt"
+            curl -sS -L -D "out/headers_$i.txt" -H 'Accept: application/json, application/vnd.mendeley-public-dataset.1+json, */*' -A 'Mozilla/5.0' "$u" -o "out/body_$i.bin"
+            file "out/body_$i.bin" >> "out/summary.txt"
+            wc -c "out/body_$i.bin" >> "out/summary.txt"
+            head -c 1000 "out/body_$i.bin" | strings >> "out/summary.txt"
+            echo '---' >> "out/summary.txt"
+          done
+          python3 - <<'PY'
+          import pathlib,re,json
+          root=pathlib.Path('out')
+          pats={
+            'uuid':re.compile(rb'(?i)[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'),
+            'download':re.compile(rb'https?[^"\'<> ]*(?:download|file)[^"\'<> ]*'),
+            'rail':re.compile(rb'.{0,120}(?:City Rail|Regional Rail|Light Rail|Ferry|GTFS).{0,200}',re.I|re.S),
+          }
+          result={}
+          for p in sorted(root.glob('body_*.bin')):
+            b=p.read_bytes()
+            result[p.name]={k:sorted(set(x.decode('utf-8','ignore') for x in pat.findall(b)))[:200] for k,pat in pats.items()}
+          (root/'extracted.json').write_text(json.dumps(result,indent=2,ensure_ascii=False),encoding='utf-8')
+          PY
+          cat out/summary.txt
+          cat out/extracted.json
+
+      - name: Upload probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: mendeley-sydney-probe
+          path: out
+          retention-days: 2
