@@ -9,48 +9,52 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe public endpoints and page
+      - name: Probe public proxy and frontend bundle
         run: |
           set +e
           mkdir -p out
           urls=(
-            'https://api.data.mendeley.com/datasets/gstfpzg339?version=1'
-            'https://api.data.mendeley.com/datasets/publics/gstfpzg339?version=1'
-            'https://api.data.mendeley.com/datasets/publics/gstfpzg339/files?version=1&%24limit=100'
-            'https://api.data.mendeley.com/datasets/gstfpzg339/files?version=1&%24limit=100'
-            'https://data.mendeley.com/datasets/gstfpzg339/1'
-            'https://data.mendeley.com/datasets/gstfpzg339'
+            'https://data.mendeley.com/public-api/datasets/gstfpzg339?version=1'
+            'https://data.mendeley.com/public-api/datasets/gstfpzg339/files?version=1'
+            'https://data.mendeley.com/public-api/datasets/gstfpzg339/files?version=1&limit=100'
+            'https://data.mendeley.com/public-api/datasets/gstfpzg339/1/files'
+            'https://data.mendeley.com/api/datasets-v2/datasets/gstfpzg339/files?version=1'
+            'https://data.mendeley.com/datasets/bundle.js?d094b8f1274604a4ed85'
           )
           i=0
           for u in "${urls[@]}"; do
             i=$((i+1))
             echo "$u" > "out/url_$i.txt"
-            curl -sS -L -D "out/headers_$i.txt" -H 'Accept: application/json, application/vnd.mendeley-public-dataset.1+json, */*' -A 'Mozilla/5.0' "$u" -o "out/body_$i.bin"
-            file "out/body_$i.bin" >> "out/summary.txt"
-            wc -c "out/body_$i.bin" >> "out/summary.txt"
-            head -c 1000 "out/body_$i.bin" | strings >> "out/summary.txt"
-            echo '---' >> "out/summary.txt"
+            curl -sS -L -D "out/headers_$i.txt" -H 'Accept: application/json, */*' -A 'Mozilla/5.0' "$u" -o "out/body_$i.bin"
+            printf 'URL %s\n' "$u" >> out/summary.txt
+            grep -m1 -E '^HTTP/' "out/headers_$i.txt" >> out/summary.txt
+            file "out/body_$i.bin" >> out/summary.txt
+            wc -c "out/body_$i.bin" >> out/summary.txt
+            head -c 1500 "out/body_$i.bin" | strings >> out/summary.txt
+            echo '---' >> out/summary.txt
           done
           python3 - <<'PY'
-          import pathlib,re,json
-          root=pathlib.Path('out')
-          pats={
-            'uuid':re.compile(rb'(?i)[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'),
-            'download':re.compile(rb'https?[^"\'<> ]*(?:download|file)[^"\'<> ]*'),
-            'rail':re.compile(rb'.{0,120}(?:City Rail|Regional Rail|Light Rail|Ferry|GTFS).{0,200}',re.I|re.S),
-          }
+          from pathlib import Path
+          import re,json
+          root=Path('out')
           result={}
           for p in sorted(root.glob('body_*.bin')):
-            b=p.read_bytes()
-            result[p.name]={k:sorted(set(x.decode('utf-8','ignore') for x in pat.findall(b)))[:200] for k,pat in pats.items()}
+              b=p.read_bytes()
+              result[p.name]={
+                  'uuids':sorted(set(x.decode() for x in re.findall(rb'(?i)[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',b)))[:300],
+                  'fileish':sorted(set(x.decode('utf-8','ignore') for x in re.findall(rb'.{0,160}(?:filename|download_url|filesLoading|/public-api|/files).{0,300}',b,re.I|re.S)))[:300]
+              }
           (root/'extracted.json').write_text(json.dumps(result,indent=2,ensure_ascii=False),encoding='utf-8')
           PY
           cat out/summary.txt
-          cat out/extracted.json
+          grep -aoE '.{0,100}/public-api.{0,200}' out/body_6.bin | head -100 > out/bundle_public_api_strings.txt
+          grep -aoE '.{0,100}(datasets/.{0,100}/files|/files\?).{0,200}' out/body_6.bin | head -200 > out/bundle_file_routes.txt
+          cat out/bundle_public_api_strings.txt
+          cat out/bundle_file_routes.txt
 
       - name: Upload probe
         uses: actions/upload-artifact@v4
         with:
-          name: mendeley-sydney-probe
+          name: mendeley-sydney-proxy-probe
           path: out
           retention-days: 2
